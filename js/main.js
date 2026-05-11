@@ -20,12 +20,14 @@
     {
       id: 'parcels',
       name: 'Property parcels',
-      sub: 'MassGIS · zoom in for detail',
+      sub: 'MassGIS · zoom to street level',
       color: '#94a3b8',
       kind: 'export',
+      // MassGIS parcels server hides itself at scales coarser than
+      // 1:24,000 — only visible when zoomed in past ~zoom 15.
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/MassachusettsPropertyTaxParcels/MapServer',
-      layers: '',
-      minZoom: 11, opacity: 0.65
+      layers: 'show:0',
+      minZoom: 14, opacity: 0.75
     },
     {
       id: 'fema',
@@ -257,7 +259,8 @@
         pitch: 0,
         bearing: 0,
         minZoom: 9.5,
-        maxZoom: 13
+        maxZoom: 18    // parcels MapServer only renders at scale finer than
+                        // 1:24,000 — need to reach zoom ~15 to see them.
       },
       controller: { dragRotate: false, doubleClickZoom: true, scrollZoom: { speed: 0.4, smooth: true } },
       views: new MapView({ id: 'map' }),
