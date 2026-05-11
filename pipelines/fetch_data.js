@@ -25,8 +25,13 @@ const OUT = path.join(ROOT, 'data', 'processed');
 fs.mkdirSync(RAW, { recursive: true });
 fs.mkdirSync(OUT, { recursive: true });
 
+// Six "highlighted" Greater Newburyport towns get the rich treatment
+// (colored fill, MassGIS assessor enrichment, full tooltip). All other MA
+// municipalities render as gray-outline boundaries with basic MLS data
+// available on hover but no color encoding.
 const TOWNS = ['Newburyport', 'Amesbury', 'Salisbury', 'Rowley', 'West Newbury', 'Newbury'];
 const TOWNS_UC = TOWNS.map(t => t.toUpperCase());
+const TOWNS_UC_SET = new Set(TOWNS_UC);
 const SINCE = new Date(Date.now() - 365 * 86400e3).toISOString().slice(0, 10);
 
 // --------- env loader ---------
@@ -69,7 +74,7 @@ async function pageMLS({ token, filter, select, label }) {
   let lastKey = null;
   let pages = 0;
   if (!select.split(',').includes('ListingKey')) select = 'ListingKey,' + select;
-  while (all.length < 50000) {
+  while (all.length < 100000) {
     const f = lastKey ? `${filter} and ListingKey gt '${lastKey}'` : filter;
     const u = new URL('https://api.bridgedataoutput.com/api/v2/OData/mlspin/Property');
     u.searchParams.set('access_token', token);
@@ -136,36 +141,38 @@ function centroid(coords) {
     console.error('BRIDGE_TOKEN missing in .env'); process.exit(1);
   }
 
-  // ---- pull MLSPIN closed + active for the 6 towns ----
-  const cityFilter = TOWNS.map(t => `City eq '${t}'`).join(' or ');
+  // ---- pull MLSPIN closed + active for ALL of MA ----
+  // Then aggregate by city — the 6 highlighted towns get a fuller record,
+  // every other municipality gets a basic record for hover-only display.
   const propTypeFilter = `(PropertyType eq 'Residential' or PropertyType eq 'Residential Income')`;
   const selectClosed = 'City,PropertyType,ClosePrice,ListPrice,OriginalListPrice,LivingArea,MLSPIN_MARKET_TIME,MLSPIN_SOLD_PRICE_PER_SQFT,CloseDate,YearBuilt';
   const selectActive = 'City,PropertyType,ListPrice,LivingArea,MLSPIN_MARKET_TIME,MLSPIN_LIST_PRICE_PER_SQFT,YearBuilt';
 
-  console.log(`\nPulling MLSPIN for ${TOWNS.length} towns (closed since ${SINCE})...`);
+  console.log(`\nPulling MLSPIN for ALL Massachusetts (closed since ${SINCE})...`);
   const closed = await pageMLS({
     token,
-    filter: `StandardStatus eq 'Closed' and StateOrProvince eq 'MA' and ${propTypeFilter} and (${cityFilter}) and CloseDate ge ${SINCE}`,
+    filter: `StandardStatus eq 'Closed' and StateOrProvince eq 'MA' and ${propTypeFilter} and CloseDate ge ${SINCE}`,
     select: selectClosed, label: 'closed'
   });
   const active = await pageMLS({
     token,
-    filter: `StandardStatus eq 'Active' and StateOrProvince eq 'MA' and ${propTypeFilter} and (${cityFilter})`,
+    filter: `StandardStatus eq 'Active' and StateOrProvince eq 'MA' and ${propTypeFilter}`,
     select: selectActive, label: 'active'
   });
   fs.writeFileSync(path.join(RAW, 'bridge_closed.json'), JSON.stringify(closed));
   fs.writeFileSync(path.join(RAW, 'bridge_active.json'), JSON.stringify(active));
 
-  // ---- pull town polygons from MassDOT ----
-  console.log(`\nPulling 6 town polygons from MassDOT...`);
-  // MassDOT FeatureServer expects OBJECTIDs; we filter by TOWN name instead via "where".
-  const whereClause = TOWNS.map(t => `TOWN='${t.toUpperCase()}'`).join(' OR ');
+  // ---- pull ALL 351 MA town polygons from MassDOT ----
+  // MassDOT FeatureServer has a paging cap (typically 1000-2000 features per
+  // request, but with 351 we should be under it). We pull in one shot.
+  console.log(`\nPulling all 351 MA town polygons from MassDOT...`);
   const ARC = 'https://gis.massdot.state.ma.us/arcgis/rest/services/Boundaries/Towns/MapServer/0/query';
   const u = new URL(ARC);
-  u.searchParams.set('where', whereClause);
+  u.searchParams.set('where', '1=1');               // every row
   u.searchParams.set('outFields', '*');
   u.searchParams.set('outSR', '4326');
   u.searchParams.set('f', 'geojson');
+  u.searchParams.set('geometryPrecision', '5');     // ~1m precision, smaller payload
   const towns = await getRetry(u.toString());
   fs.writeFileSync(path.join(RAW, 'towns.geojson'), JSON.stringify(towns));
   console.log(`  pulled ${towns.features.length} polygons`);
@@ -176,12 +183,15 @@ function centroid(coords) {
   const closedByName = new Map(closedAgg.map(r => [r.city.toUpperCase(), r]));
   const activeByName = new Map(activeAgg.map(r => [r.city.toUpperCase(), r]));
 
-  // ---- merge into geojson ----
+  // ---- merge MLSPIN aggregates into every town in the geojson ----
+  // Flag the 6 Greater Newburyport towns with is_highlighted so the map can
+  // render them differently. Everyone else gets basic stats for hover.
   for (const f of towns.features) {
     const name = f.properties.TOWN;
     const c = closedByName.get(name);
     const a = activeByName.get(name);
     f.properties.centroid = centroid(f.geometry.coordinates);
+    f.properties.is_highlighted = TOWNS_UC_SET.has(name);
     if (c) {
       f.properties.sold_count = c.count;
       f.properties.median_sold = Math.round(c.median_ClosePrice);
@@ -252,9 +262,10 @@ function centroid(coords) {
     f.properties.massgis_town_id = tid;
   }
 
-  // ---- compute bounding box for map camera ----
+  // ---- compute bounding box for map camera (centered on the 6 GN towns) ----
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
   for (const f of towns.features) {
+    if (!f.properties.is_highlighted) continue;
     const [lng, lat] = f.properties.centroid;
     minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
     minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
@@ -278,11 +289,15 @@ function centroid(coords) {
   fs.writeFileSync(path.join(OUT, 'newburyport.json'), JSON.stringify(out, null, 2));
   console.log(`\nWrote newburyport.json — ${closed.length} closed + ${active.length} active across ${towns.features.length} towns`);
 
-  // ---- summary print ----
-  console.log('\n  Town           sold n   median sold   median DOM   active n   active list');
+  // ---- summary print: 6 highlighted towns + overall stats ----
+  console.log('\n  HIGHLIGHTED — Greater Newburyport');
+  console.log('  Town           sold n   median sold   median DOM   active n   active list');
   for (const f of towns.features) {
+    if (!f.properties.is_highlighted) continue;
     const p = f.properties;
     const fmt = (v) => v == null ? '—' : '$' + Math.round(v/1000) + 'K';
     console.log(`  ${(p.TOWN || '').padEnd(15)} ${String(p.sold_count || 0).padStart(5)}   ${fmt(p.median_sold).padStart(7)}     ${String(p.median_dom || 0).padStart(4)}        ${String(p.active_count || 0).padStart(4)}      ${fmt(p.median_active_list).padStart(7)}`);
   }
+  const withData = towns.features.filter(f => f.properties.sold_count).length;
+  console.log(`\n  All MA: ${towns.features.length} polygons total, ${withData} with MLSPIN sales data`);
 })().catch(e => { console.error('FAILED:', e.message); process.exit(1); });

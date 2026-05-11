@@ -297,16 +297,37 @@
         const t = object && object.properties && object.properties.TOWN;
         if (t !== hoveredTown) { hoveredTown = t; deckInstance.setProps({ layers: buildLayers() }); }
       },
+      // Picking has to traverse two town layers (background + highlighted),
+      // and ArcGIS BitmapLayers should not capture hover events.
+      pickingRadius: 1,
       getTooltip: ({ object }) => {
         if (!object) return null;
         const p = object.properties;
-        // Build tooltip with the SELECTED metric pinned to the top in a
-        // highlighted block so toggling metric buttons is visible on hover.
+        // For the 6 Greater Newburyport towns: full rich tooltip with selected
+        // metric pinned at the top + MassGIS assessor section.
+        // For all OTHER MA towns: lightweight tooltip with just basic MLS stats.
+        if (!p.is_highlighted) {
+          const noData = !p.sold_count;
+          const html = `
+            <div class="tt-name tt-name-other">${titleCase(p.TOWN)}</div>
+            <div class="tt-other-sub">MLSPIN · last 12 months</div>
+            ${noData ? `
+              <div class="tt-row"><span>data</span><b>not in MLSPIN window</b></div>
+            ` : `
+              <div class="tt-row"><span>Median sold</span><b>${fmt(p.median_sold)}</b></div>
+              <div class="tt-row"><span>Sales</span><b>${p.sold_count.toLocaleString()}</b></div>
+              <div class="tt-row"><span>Days on market</span><b>${p.median_dom != null ? Math.round(p.median_dom)+' days' : '—'}</b></div>
+              <div class="tt-row"><span>$ / sqft</span><b>${p.median_sold_psf != null ? '$'+Math.round(p.median_sold_psf) : '—'}</b></div>
+              <div class="tt-row"><span>Active listings</span><b>${p.active_count || '—'}</b></div>
+            `}
+          `;
+          return { html, className: 'tt' };
+        }
+
+        // Rich tooltip for the 6 highlighted towns
         const sel = METRICS[activeMetric];
         const selValue = p[activeMetric];
         const selDisplay = sel.format(selValue);
-        // Decide which section header the selected metric belongs in
-        const selIsAssessor = activeMetric.startsWith('parcel');
         const mlspinRow = (label, key, fmtFn) => {
           const active = activeMetric === key;
           const val = p[key];
@@ -463,23 +484,49 @@
       layers.push(o.kind === 'tile-cached' ? cachedTileLayer(o) : exportTileLayer(o));
     }
 
-    // Town polygons (always visible; reduce opacity when any overlay is on)
+    // Split geojson into two render sets:
+    //   - background: 345 non-highlighted MA municipalities (gray outlines,
+    //     transparent fill, hover-able for basic MLS tooltip)
+    //   - highlighted: 6 Greater Newburyport towns (colored fill, strong
+    //     stroke, full tooltip)
+    const allFeatures = geojson.features;
+    const backgroundData = { type: 'FeatureCollection', features: allFeatures.filter(f => !f.properties.is_highlighted) };
+    const highlightData  = { type: 'FeatureCollection', features: allFeatures.filter(f =>  f.properties.is_highlighted) };
+
+    // background layer: all OTHER MA towns
     layers.push(new GeoJsonLayer({
-      id: 'towns',
-      data: geojson,
+      id: 'towns-bg',
+      data: backgroundData,
       stroked: true,
       filled: true,
       lineWidthUnits: 'pixels',
-      lineWidthMinPixels: 1,
-      getLineColor: f => f.properties.TOWN === hoveredTown ? [30, 51, 94, 255] : [30, 51, 94, 110],
-      getLineWidth: f => f.properties.TOWN === hoveredTown ? 3 : 1,
+      lineWidthMinPixels: 0.8,
+      getLineColor: f => f.properties.TOWN === hoveredTown ? [30, 51, 94, 220] : [30, 51, 94, 60],
+      getLineWidth: f => f.properties.TOWN === hoveredTown ? 2 : 0.8,
+      getFillColor: f => f.properties.TOWN === hoveredTown ? [201, 235, 252, 80] : [255, 255, 255, 0],
+      pickable: true,
+      updateTriggers: {
+        getLineColor: [hoveredTown],
+        getLineWidth: [hoveredTown],
+        getFillColor: [hoveredTown]
+      }
+    }));
+
+    // highlighted: the 6 Greater Newburyport towns
+    layers.push(new GeoJsonLayer({
+      id: 'towns',
+      data: highlightData,
+      stroked: true,
+      filled: true,
+      lineWidthUnits: 'pixels',
+      lineWidthMinPixels: 1.5,
+      getLineColor: f => f.properties.TOWN === hoveredTown ? [30, 51, 94, 255] : [30, 51, 94, 180],
+      getLineWidth: f => f.properties.TOWN === hoveredTown ? 3 : 1.6,
       getFillColor: f => {
         const v = f.properties[activeMetric];
         const c = metricColor(v, cfg, f.properties.TOWN);
-        // dimmer fill so the basemap streets show through;
-        // even dimmer when other overlays are active
         const a = anyOverlayActive ? 80 : 150;
-        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 160 : 200];
+        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 160 : 210];
         return [c[0], c[1], c[2], a];
       },
       pickable: true,
