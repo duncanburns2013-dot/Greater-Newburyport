@@ -7,8 +7,76 @@
   if (!window.deck) return console.error('deck.gl not loaded');
   const { Deck, MapView, GeoJsonLayer, TileLayer, BitmapLayer } = window.deck;
 
-  const PARCEL_TILE_URL = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_Level3_Parcels/MapServer/tile/{z}/{y}/{x}';
-  let showParcels = false;
+  // ---------- map overlay registry ----------
+  // Each overlay = a toggleable raster layer pulled live from a public ArcGIS
+  // MapServer. ArcGIS dynamic services expose /export?bbox=...&size=... which
+  // we use as the tile source via Deck.gl TileLayer's getTileData callback.
+  //
+  // For the seacoast Greater-Newburyport market, flood + sea-level-rise are
+  // the most consequential overlays. Wetlands and NHESP rare-species habitats
+  // are universal buildability constraints. Coastal Zone marks the regulatory
+  // boundary inside which CZM jurisdiction applies.
+  const OVERLAYS = [
+    {
+      id: 'parcels',
+      name: 'Property parcels',
+      sub: 'MassGIS · zoom in for detail',
+      color: '#94a3b8',
+      kind: 'tile-cached',
+      url: 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_Level3_Parcels/MapServer/tile/{z}/{y}/{x}',
+      minZoom: 10, maxZoom: 19, opacity: 0.55
+    },
+    {
+      id: 'fema',
+      name: 'FEMA flood zones',
+      sub: 'FIRM · 100-yr & 500-yr',
+      color: '#0ea5e9',
+      kind: 'export',
+      base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/FEMA/FEMA_National_Flood_Hazard_Layer/MapServer',
+      layers: 'show:14,16,18,20,22,24,26,28', minZoom: 9, opacity: 0.55
+    },
+    {
+      id: 'slr',
+      name: 'Sea level rise (NOAA)',
+      sub: 'CZM · 1–6 ft scenarios',
+      color: '#0d9488',
+      kind: 'export',
+      base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/CZM_NOAA_SLR_Data_Combined/MapServer',
+      layers: '',  // all layers
+      minZoom: 9, opacity: 0.55
+    },
+    {
+      id: 'wetlands',
+      name: 'Wetlands',
+      sub: 'MassDEP',
+      color: '#65a30d',
+      kind: 'export',
+      base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/DEP_Wetlands/MapServer',
+      layers: '',
+      minZoom: 9, opacity: 0.55
+    },
+    {
+      id: 'nhesp',
+      name: 'Rare species habitat',
+      sub: 'NHESP Priority Habitats',
+      color: '#d97706',
+      kind: 'export',
+      base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/NHESP_Priority_Habitats/MapServer',
+      layers: '',
+      minZoom: 9, opacity: 0.5
+    },
+    {
+      id: 'czm',
+      name: 'Coastal zone (CZM)',
+      sub: 'state regulatory boundary',
+      color: '#1e335e',
+      kind: 'export',
+      base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/Coastal_Zone/MapServer',
+      layers: '',
+      minZoom: 8, opacity: 0.45
+    }
+  ];
+  const overlayState = Object.fromEntries(OVERLAYS.map(o => [o.id, false]));
 
   // MIMAP (Merrimack Valley Planning Commission) per-town interactive viewers.
   // Each town has its own VertiGIS Studio app with 30-140 layers — full parcel
@@ -204,35 +272,83 @@
 
     drawLegend();
     drawCards();
+    drawLayerToggles();
     wireControls();
     window.addEventListener('resize', () => deckInstance && deckInstance.redraw());
+  }
+
+  // build a TileLayer for an ArcGIS dynamic MapServer (via /export endpoint).
+  // Tiles are rendered server-side at the requested bbox + size.
+  function exportTileLayer(o) {
+    return new TileLayer({
+      id: `ov-${o.id}`,
+      minZoom: o.minZoom || 8,
+      maxZoom: 19,
+      tileSize: 512,
+      opacity: o.opacity || 0.55,
+      getTileData: async ({ bbox }) => {
+        const { west, south, east, north } = bbox;
+        const u = new URL(o.base + '/export');
+        u.searchParams.set('bbox', `${west},${south},${east},${north}`);
+        u.searchParams.set('bboxSR', '4326');
+        u.searchParams.set('imageSR', '4326');
+        u.searchParams.set('size', '512,512');
+        u.searchParams.set('format', 'png32');
+        u.searchParams.set('transparent', 'true');
+        u.searchParams.set('dpi', '96');
+        u.searchParams.set('f', 'image');
+        if (o.layers) u.searchParams.set('layers', o.layers);
+        try {
+          const r = await fetch(u.toString());
+          if (!r.ok) return null;
+          const blob = await r.blob();
+          return await createImageBitmap(blob);
+        } catch { return null; }
+      },
+      renderSubLayers: props => {
+        if (!props.data) return null;
+        const { boundingBox } = props.tile;
+        return new BitmapLayer(props, {
+          data: null,
+          image: props.data,
+          bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
+        });
+      }
+    });
+  }
+
+  // cached tile layer for services with pre-rendered /tile/{z}/{y}/{x} endpoint
+  function cachedTileLayer(o) {
+    return new TileLayer({
+      id: `ov-${o.id}`,
+      data: o.url,
+      minZoom: o.minZoom || 10,
+      maxZoom: o.maxZoom || 19,
+      tileSize: 256,
+      opacity: o.opacity || 0.55,
+      renderSubLayers: props => {
+        const { boundingBox } = props.tile;
+        return new BitmapLayer(props, {
+          data: null,
+          image: props.data,
+          bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
+        });
+      }
+    });
   }
 
   function buildLayers() {
     const cfg = METRICS[activeMetric];
     const layers = [];
+    const anyOverlayActive = Object.values(overlayState).some(v => v);
 
-    // Optional: MassGIS parcel raster tiles (visible only at high zoom for perf)
-    if (showParcels) {
-      layers.push(new TileLayer({
-        id: 'parcel-tiles',
-        data: PARCEL_TILE_URL,
-        minZoom: 10,
-        maxZoom: 19,
-        tileSize: 256,
-        opacity: 0.55,
-        renderSubLayers: props => {
-          const { boundingBox } = props.tile;
-          return new BitmapLayer(props, {
-            data: null,
-            image: props.data,
-            bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
-          });
-        }
-      }));
+    // Overlays render BELOW the town polygons so the choropleth stays primary
+    for (const o of OVERLAYS) {
+      if (!overlayState[o.id]) continue;
+      layers.push(o.kind === 'tile-cached' ? cachedTileLayer(o) : exportTileLayer(o));
     }
 
-    // Town polygons (always visible, beneath/above parcels depending on toggle)
+    // Town polygons (always visible; reduce opacity when any overlay is on)
     layers.push(new GeoJsonLayer({
       id: 'towns',
       data: geojson,
@@ -245,14 +361,13 @@
       getFillColor: f => {
         const v = f.properties[activeMetric];
         const c = metricColor(v, cfg);
-        // When parcels are visible, knock fill opacity down so parcels show through
-        const a = showParcels ? 110 : c[3];
-        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], showParcels ? 160 : 255];
+        const a = anyOverlayActive ? 80 : c[3];
+        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 140 : 255];
         return [c[0], c[1], c[2], a];
       },
       pickable: true,
       updateTriggers: {
-        getFillColor: [activeMetric, hoveredTown, showParcels],
+        getFillColor: [activeMetric, hoveredTown, anyOverlayActive],
         getLineColor: [hoveredTown],
         getLineWidth: [hoveredTown]
       },
@@ -260,6 +375,28 @@
     }));
 
     return layers;
+  }
+
+  // ---------- render overlay toggles ----------
+  function drawLayerToggles() {
+    const grid = document.getElementById('layersGrid');
+    if (!grid) return;
+    grid.innerHTML = OVERLAYS.map(o => `
+      <label class="layer-toggle${overlayState[o.id] ? ' active' : ''}" data-layer="${o.id}">
+        <input type="checkbox" ${overlayState[o.id] ? 'checked' : ''} />
+        <span class="layer-swatch" style="background:${o.color}"></span>
+        <span class="layer-name">${o.name}<small>${o.sub}</small></span>
+      </label>`).join('');
+    grid.querySelectorAll('.layer-toggle').forEach(el => {
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        const id = el.getAttribute('data-layer');
+        overlayState[id] = !overlayState[id];
+        el.classList.toggle('active', overlayState[id]);
+        el.querySelector('input').checked = overlayState[id];
+        deckInstance.setProps({ layers: buildLayers() });
+      });
+    });
   }
 
   function drawLegend() {
@@ -327,13 +464,6 @@
         drawCards();
       });
     });
-    const tg = document.getElementById('parcelsToggle');
-    if (tg) {
-      tg.addEventListener('change', () => {
-        showParcels = tg.checked;
-        deckInstance.setProps({ layers: buildLayers() });
-      });
-    }
   }
 
   function titleCase(s) {
