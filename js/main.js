@@ -24,10 +24,10 @@
       color: '#94a3b8',
       kind: 'export',
       // MassGIS parcels server hides itself at scales coarser than
-      // 1:24,000 — only visible when zoomed in past ~zoom 15.
+      // 1:24,000 — only visible when zoomed in past ~zoom 14.
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/MassachusettsPropertyTaxParcels/MapServer',
       layers: 'show:0',
-      minZoom: 14, opacity: 0.75
+      minZoom: 14, opacity: 0.95
     },
     {
       id: 'fema',
@@ -396,6 +396,30 @@
     const layers = [];
     const anyOverlayActive = Object.values(overlayState).some(v => v);
 
+    // CartoDB Positron basemap — light neutral with street names + labels.
+    // Renders first so everything stacks on top of streets/labels for context.
+    layers.push(new TileLayer({
+      id: 'basemap',
+      data: [
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+      ],
+      minZoom: 0,
+      maxZoom: 19,
+      tileSize: 256,
+      opacity: 0.85,
+      renderSubLayers: props => {
+        const { boundingBox } = props.tile;
+        return new BitmapLayer(props, {
+          data: null,
+          image: props.data,
+          bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
+        });
+      }
+    }));
+
     // Overlays render BELOW the town polygons so the choropleth stays primary
     for (const o of OVERLAYS) {
       if (!overlayState[o.id]) continue;
@@ -415,8 +439,10 @@
       getFillColor: f => {
         const v = f.properties[activeMetric];
         const c = metricColor(v, cfg, f.properties.TOWN);
-        const a = anyOverlayActive ? 90 : c[3];
-        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 160 : 255];
+        // dimmer fill so the basemap streets show through;
+        // even dimmer when other overlays are active
+        const a = anyOverlayActive ? 80 : 150;
+        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 160 : 200];
         return [c[0], c[1], c[2], a];
       },
       pickable: true,
