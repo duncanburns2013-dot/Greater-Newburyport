@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Greater Newburyport &mdash; Market Snapshot</title>
+<meta name="description" content="Interactive market snapshot for Newburyport, Amesbury, Salisbury, Rowley, West Newbury, and Newbury. Live MLSPIN data." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<main class="app">
+
+  <header class="head">
+    <h1 class="head-title">Greater Newburyport <span class="head-light">&middot; Market Snapshot</span></h1>
+    <p class="head-sub">
+      <span id="head-window">Last 12 months</span> &middot;
+      <span id="head-counts">— closed / — active</span> &middot;
+      <span class="head-source">MLSPIN</span>
+    </p>
+  </header>
+
+  <nav class="metric-bar" id="metricBar" aria-label="Map metric">
+    <button data-metric="median_sold" class="active">Median Sold</button>
+    <button data-metric="median_active_list">Median List</button>
+    <button data-metric="median_dom">Days on Market</button>
+    <button data-metric="sold_count">Sales (12 mo)</button>
+    <button data-metric="median_sold_psf">$ / sqft</button>
+  </nav>
+
+  <div class="map-wrap">
+    <div id="map" class="map" role="img" aria-label="Map of six Greater Newburyport towns shaded by market metric">
+      <div class="map-loading">Loading map&hellip;</div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <section class="cards" id="cards"></section>
+
+  <footer class="foot">
+    <div class="foot-credit">
+      <span class="foot-name">Duncan Burns</span> &middot; REMAX Bentleys
+    </div>
+    <div class="foot-meta">
+      Data: <a href="https://www.mlspin.com" target="_blank" rel="noopener">MLSPIN</a>
+      &middot; <span id="foot-stamp">refreshed &mdash;</span>
+      &middot; Boundaries: <a href="https://www.mass.gov/info-details/massgis-data-municipalities" target="_blank" rel="noopener">MassGIS / MassDOT</a>
+    </div>
+    <div class="foot-disclaim">
+      Aggregate market statistics. Not a guarantee of value or terms of any individual property.
+      Single-family, condominium, and 2&ndash;3 family residential transactions only.
+    </div>
+  </footer>
+
+</main>
+
+<!-- libraries -->
+<script src="https://unpkg.com/deck.gl@9.0.33/dist.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

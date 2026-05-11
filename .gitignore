@@ -1,0 +1,18 @@
+# env
+.env
+.env.*
+!.env.example
+*.token
+*.secret
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# node
+node_modules/
+
+# raw MLS pulls (regenerable, sometimes contain agent contact info)
+data/raw/bridge_*.json
+data/raw/mlspin_*.json
