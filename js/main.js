@@ -106,6 +106,32 @@
   let activeMetric = 'median_sold';
   let hoveredTown = null;
   let deckInstance;
+  let currentZoom = 10.5;
+
+  // helper available to all closures: jump the map to a target zoom over the centroid
+  function zoomTo(targetZoom) {
+    if (!deckInstance) return;
+    const vs = deckInstance.viewManager.getViewState ? deckInstance.viewManager.getViewState() : null;
+    const b = payload.meta.bbox;
+    deckInstance.setProps({
+      initialViewState: {
+        longitude: (b.minLng + b.maxLng) / 2,
+        latitude: (b.minLat + b.maxLat) / 2,
+        zoom: targetZoom,
+        pitch: 0,
+        bearing: 0,
+        transitionDuration: 700
+      }
+    });
+  }
+
+  // shown only when parcels overlay is on AND zoom is below the visible threshold
+  function updateZoomHint() {
+    const el = document.getElementById('zoomHint');
+    if (!el) return;
+    const need = overlayState.parcels && currentZoom < 14;
+    el.style.display = need ? 'flex' : 'none';
+  }
 
   // ---------- metric configs ----------
   const METRICS = {
@@ -259,10 +285,14 @@
         pitch: 0,
         bearing: 0,
         minZoom: 9.5,
-        maxZoom: 18    // parcels MapServer only renders at scale finer than
-                        // 1:24,000 — need to reach zoom ~15 to see them.
+        maxZoom: 18
       },
-      controller: { dragRotate: false, doubleClickZoom: true, scrollZoom: { speed: 0.4, smooth: true } },
+      onViewStateChange: ({ viewState }) => {
+        currentZoom = viewState.zoom;
+        updateZoomHint();
+        return viewState;
+      },
+      controller: { dragRotate: false, doubleClickZoom: true, scrollZoom: { speed: 0.6, smooth: true } },
       views: new MapView({ id: 'map' }),
       onHover: ({ object }) => {
         const t = object && object.properties && object.properties.TOWN;
@@ -419,6 +449,11 @@
         el.classList.toggle('active', overlayState[id]);
         el.querySelector('input').checked = overlayState[id];
         deckInstance.setProps({ layers: buildLayers() });
+        updateZoomHint();
+        // when the user turns parcels on, auto-zoom in so they actually see them
+        if (id === 'parcels' && overlayState[id] && currentZoom < 14) {
+          zoomTo(15);
+        }
       });
     });
   }
