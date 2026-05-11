@@ -60,8 +60,24 @@ If the embed looks too narrow on your Squarespace site, the constraint is Square
 
 | Source | What it provides |
 |---|---|
-| MLSPIN | Active + closed-last-365-day residential transactions |
-| MassDOT Boundaries/Towns | Six town polygons + median household income (state-attached) |
+| **MLSPIN** | Active + closed-last-365-day residential transactions |
+| **MassDOT Boundaries/Towns** | Six town polygons + median household income (state-attached) |
+| **MassGIS Property Tax Parcels** | Residential parcel counts + assessed values + building stats (FeatureServer aggregates) |
+| **MassGIS Level3 Parcels MapServer** | Parcel boundary tiles (optional overlay) |
+| **MIMAP (MVPC)** | Per-town deep-detail viewers — 30-140 layers each (zoning, FEMA flood, wetlands, sea-level rise, NHESP habitats, building footprints, utility infrastructure). Linked out per town card. |
+
+### Per-town MIMAP app IDs
+
+| Town | MIMAP app | Status |
+|---|---|---|
+| Amesbury | `3e949ad988ce44ce8d59fa2725953232` | best-guess mapping (alphabetical) |
+| Newbury | `d67d053bfc7440729f9dc25fa6df96d6` | best-guess mapping |
+| Newburyport | `ce916a96c79549069a0b2432d91814f1` | best-guess mapping |
+| Rowley | `55915caf392541e58e5d742971a1a4d4` | best-guess mapping |
+| Salisbury | `0f11a337dd2d4d2f85cfcdf8ffcb1f9e` | best-guess mapping |
+| West Newbury | `24cc4950ce0347b0a454c12ea1c5760e` | best-guess mapping |
+
+If a card link opens the wrong town, swap the IDs in `MIMAP_URL` in `js/main.js`. The MIMAP backend itself is at `portal.mvpc.org/arcgis/rest/services/{TownName}/{TownName}GPV/MapServer` — Newburyport's service alone has 140 layers, so future deeper integration (e.g. fetching FIRM Floodplains polygons directly into our map) is possible.
 
 ## Local development
 

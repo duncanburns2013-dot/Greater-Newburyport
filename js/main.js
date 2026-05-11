@@ -10,6 +10,22 @@
   const PARCEL_TILE_URL = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_Level3_Parcels/MapServer/tile/{z}/{y}/{x}';
   let showParcels = false;
 
+  // MIMAP (Merrimack Valley Planning Commission) per-town interactive viewers.
+  // Each town has its own VertiGIS Studio app with 30-140 layers — full parcel
+  // detail, zoning, FEMA flood, NHESP habitats, wetlands buffers, sea-level
+  // rise projections, building footprints, etc. The app IDs below are the
+  // six MIMAP URLs Duncan provided; the town→app mapping is a best guess
+  // (alphabetical order). If a link opens the wrong town, swap the app IDs
+  // until they match.
+  const MIMAP_URL = {
+    AMESBURY:     'https://mimap2.mvpc.org/vertigisstudio/web/?app=3e949ad988ce44ce8d59fa2725953232',
+    NEWBURY:      'https://mimap2.mvpc.org/vertigisstudio/web/?app=d67d053bfc7440729f9dc25fa6df96d6',
+    NEWBURYPORT:  'https://mimap2.mvpc.org/vertigisstudio/web/?app=ce916a96c79549069a0b2432d91814f1',
+    ROWLEY:       'https://mimap2.mvpc.org/vertigisstudio/web/?app=55915caf392541e58e5d742971a1a4d4',
+    SALISBURY:    'https://mimap2.mvpc.org/vertigisstudio/web/?app=0f11a337dd2d4d2f85cfcdf8ffcb1f9e',
+    'WEST NEWBURY': 'https://mimap2.mvpc.org/vertigisstudio/web/?app=24cc4950ce0347b0a454c12ea1c5760e'
+  };
+
   const mapEl = document.getElementById('map');
   const cardsEl = document.getElementById('cards');
   const legendEl = document.getElementById('legend');
@@ -271,7 +287,8 @@
     cardsEl.innerHTML = features.map(f => {
       const p = f.properties;
       const town = titleCase(p.TOWN);
-      const massGisLink = `https://massgis.maps.arcgis.com/apps/instant/sidebar/index.html?appid=3108befad2974590a8f40016de73ae31&searchExtent=${encodeURIComponent(town + ', MA')}`;
+      const mimap = MIMAP_URL[p.TOWN];
+      const massGisLink = `https://massgis.maps.arcgis.com/apps/instant/sidebar/index.html?appid=3108befad2974590a8f40016de73ae31`;
       return `<article class="card">
         <div class="card-town">${town}</div>
         <div class="card-section">Sales (MLSPIN, last 12 mo)</div>
@@ -290,9 +307,10 @@
           <dt>Avg building</dt><dd>${p.parcel_avg_bld != null ? p.parcel_avg_bld.toLocaleString()+' sf' : '—'}</dd>
           <dt>Oldest on record</dt><dd>${p.parcel_oldest || '—'}</dd>
         </dl>
-        <a class="card-link" href="${massGisLink}" target="_blank" rel="noopener">
-          View parcels on MassGIS &rarr;
-        </a>
+        <div class="card-links">
+          ${mimap ? `<a class="card-link card-link-primary" href="${mimap}" target="_blank" rel="noopener">${town} MIMAP &rarr;</a>` : ''}
+          <a class="card-link" href="${massGisLink}" target="_blank" rel="noopener">MA Property Map &rarr;</a>
+        </div>
       </article>`;
     }).join('');
   }

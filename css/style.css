@@ -340,25 +340,38 @@ a:hover { border-bottom-color: var(--navy); }
 }
 .card-section:first-of-type { padding-top: 0; border-top: none; margin-top: 0; }
 
-/* "View on MassGIS" link inside each card */
+/* Per-card link row to external GIS detail viewers */
+.card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
 .card-link {
   display: inline-block;
-  margin-top: 0.85rem;
   padding: 0.4rem 0.7rem;
-  background: var(--brand-cyan);
+  background: var(--cyan-soft);
   color: var(--brand-navy);
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   border-radius: 4px;
   border-bottom: none;
   transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.card-link-primary {
+  background: var(--brand-navy);
+  color: #fff;
 }
 .card-link:hover {
   background: var(--brand-navy);
   color: #fff;
   transform: translateX(2px);
+}
+.card-link-primary:hover {
+  background: var(--navy-deep);
 }
 
 /* Section labels inside the tooltip */
