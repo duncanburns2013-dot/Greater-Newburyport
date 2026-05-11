@@ -22,9 +22,10 @@
       name: 'Property parcels',
       sub: 'MassGIS · zoom in for detail',
       color: '#94a3b8',
-      kind: 'tile-cached',
-      url: 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_Level3_Parcels/MapServer/tile/{z}/{y}/{x}',
-      minZoom: 10, maxZoom: 19, opacity: 0.55
+      kind: 'export',
+      base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/MassachusettsPropertyTaxParcels/MapServer',
+      layers: '',
+      minZoom: 11, opacity: 0.65
     },
     {
       id: 'fema',
@@ -171,30 +172,50 @@
     }
   };
 
-  // ---------- color ramp ----------
-  // Single-hue brand ramp: light cyan #c9ebfc → deep navy #1e335e.
-  // Sequential, professional, on-brand. No advocacy color cues.
-  const RAMP = [
-    [201, 235, 252],   // brand cyan (low values)
-    [148, 195, 232],   // mid cyan-blue
-    [ 88, 132, 184],   // muted blue
-    [ 54,  88, 138],   // steel navy
-    [ 30,  51,  94]    // brand navy (high values)
-  ];
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function ramp(t, alpha = 230) {
-    t = Math.max(0, Math.min(1, t));
-    const i = t * (RAMP.length - 1);
-    const i0 = Math.floor(i), i1 = Math.min(i0 + 1, RAMP.length - 1);
-    const f = i - i0;
-    const a = RAMP[i0], b = RAMP[i1];
-    return [Math.round(lerp(a[0], b[0], f)), Math.round(lerp(a[1], b[1], f)), Math.round(lerp(a[2], b[2], f)), alpha];
+  // ---------- per-town color identity ----------
+  // Each town gets a distinct brand-friendly hue. The selected metric
+  // modulates SATURATION/LIGHTNESS within the town's hue — so a town's
+  // identity is always visible and metric value reads as intensity.
+  // Hues drawn from corporate navy + complementary realtor-friendly tones.
+  const TOWN_HUES = {
+    'NEWBURYPORT':  { h: 215, s: 56, l: 28, name: 'Navy' },     // brand navy
+    'AMESBURY':     { h:  18, s: 60, l: 42, name: 'Rust' },     // Indian red / warm rust
+    'SALISBURY':    { h: 180, s: 48, l: 38, name: 'Teal' },     // ocean / beach
+    'NEWBURY':      { h:  90, s: 35, l: 38, name: 'Sage' },     // rural / agricultural
+    'ROWLEY':       { h: 120, s: 35, l: 30, name: 'Forest' },   // rural / forested
+    'WEST NEWBURY': { h: 320, s: 35, l: 38, name: 'Plum' }      // rolling hills
+  };
+
+  function hslToRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
   }
-  function metricColor(v, cfg) {
-    if (v == null) return [220, 225, 235, 200];
+
+  // Town color: town's base hue, but lightness modulated by the metric value.
+  // High value → darker (more saturated) version of the hue.
+  // Low value  → lighter (washed-out) version.
+  function metricColor(v, cfg, townName) {
+    const hue = TOWN_HUES[townName] || { h: 220, s: 30, l: 50 };
+    if (v == null || cfg == null) {
+      const [r, g, b] = hslToRgb(hue.h, hue.s * 0.4, Math.min(hue.l + 25, 85));
+      return [r, g, b, 180];
+    }
     let t = (v - cfg.domain[0]) / (cfg.domain[1] - cfg.domain[0]);
     if (cfg.direction === 'higher-is-better') t = 1 - t;
-    return ramp(t);
+    t = Math.max(0, Math.min(1, t));
+    // higher t → darker (lower lightness, higher saturation)
+    const targetL = hue.l + (1 - t) * 32;    // higher value → closer to base lightness; lower → 32pts lighter
+    const targetS = hue.s * (0.55 + t * 0.45); // higher value → more saturated
+    const [r, g, b] = hslToRgb(hue.h, targetS, targetL);
+    return [r, g, b, 235];
+  }
+  // Backwards-compat exposing the per-town hue at full strength (for legend swatches)
+  function townSwatch(townName) {
+    const hue = TOWN_HUES[townName] || { h: 220, s: 30, l: 45 };
+    return hslToRgb(hue.h, hue.s, hue.l);
   }
 
   function fmt(v) {
@@ -360,9 +381,9 @@
       getLineWidth: f => f.properties.TOWN === hoveredTown ? 3 : 1,
       getFillColor: f => {
         const v = f.properties[activeMetric];
-        const c = metricColor(v, cfg);
-        const a = anyOverlayActive ? 80 : c[3];
-        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 140 : 255];
+        const c = metricColor(v, cfg, f.properties.TOWN);
+        const a = anyOverlayActive ? 90 : c[3];
+        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], anyOverlayActive ? 160 : 255];
         return [c[0], c[1], c[2], a];
       },
       pickable: true,
@@ -400,16 +421,21 @@
   }
 
   function drawLegend() {
+    // Legend now shows the 6 town colors (categorical, not metric ramp).
+    // Metric value is encoded as intensity within each town's hue —
+    // darker = higher value, lighter = lower value.
     const cfg = METRICS[activeMetric];
-    const sw = cfg.legendStops.map((s, i) => {
-      const t = i / (cfg.legendStops.length - 1);
-      const c = ramp(cfg.direction === 'higher-is-better' ? 1 - t : t);
+    const swatches = Object.entries(TOWN_HUES).map(([town, hue]) => {
+      const [r, g, b] = hslToRgb(hue.h, hue.s, hue.l);
       return `<div class="legend-stop">
-        <span class="legend-swatch" style="background:rgb(${c[0]},${c[1]},${c[2]})"></span>
-        <span>${cfg.legendFormat(s)}</span>
+        <span class="legend-swatch" style="background:rgb(${r},${g},${b})"></span>
+        <span>${titleCase(town)}</span>
       </div>`;
     }).join('');
-    legendEl.innerHTML = `<div class="legend-title">${cfg.label}</div><div class="legend-row">${sw}</div>`;
+    legendEl.innerHTML = `
+      <div class="legend-title">Towns &middot; intensity = ${cfg.label}</div>
+      <div class="legend-row">${swatches}</div>
+    `;
   }
 
   function drawCards() {

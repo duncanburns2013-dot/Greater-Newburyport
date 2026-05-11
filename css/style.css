@@ -261,46 +261,62 @@ a:hover { border-bottom-color: var(--navy); }
 
 /* ----- tooltip (deck.gl injects html into a styled element) ----- */
 .tt {
-  background: rgba(28, 34, 51, 0.96);
-  color: var(--paper);
+  background: rgba(15, 22, 36, 0.97);
+  color: #ffffff;
   border-radius: 6px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   font-family: var(--sans);
   font-size: 12.5px;
-  min-width: 220px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  min-width: 240px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
   pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(201, 235, 252, 0.30);
 }
 .tt-name {
   font-family: var(--serif);
   font-style: italic;
-  font-size: 1.15rem;
-  color: var(--gold-soft);
-  margin-bottom: 0.55rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 1.25rem;
+  color: var(--brand-cyan);
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(201, 235, 252, 0.30);
+  font-weight: 500;
 }
+.tt-section {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--brand-cyan);
+  margin: 0.65rem 0 0.35rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.tt-section:first-of-type { padding-top: 0; border-top: none; margin-top: 0; }
 .tt-row {
   display: flex;
   justify-content: space-between;
   gap: 1.2rem;
   padding: 3px 0;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   align-items: baseline;
 }
 .tt-row span {
-  color: rgba(250, 247, 240, 0.6);
-  font-family: var(--mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 0.64rem;
+  color: #ffffff;
+  opacity: 0.92;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .tt-row b {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--paper);
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 0.88rem;
 }
 
 /* ----- town cards beneath map ----- */
@@ -409,19 +425,7 @@ a:hover { border-bottom-color: var(--navy); }
   background: var(--navy-deep);
 }
 
-/* Section labels inside the tooltip */
-.tt-section {
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(201, 235, 252, 0.85);
-  margin: 0.6rem 0 0.3rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
-}
-.tt-section:first-of-type { padding-top: 0; border-top: none; margin-top: 0; }
+/* (tt-section now defined above with stronger contrast) */
 
 /* ----- "Go deeper" external link row ----- */
 .explore-row {
