@@ -36,7 +36,7 @@
       color: '#0ea5e9',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/FEMA/FEMA_National_Flood_Hazard_Layer/MapServer',
-      layers: 'show:14,16,18,20,22,24,26,28', minZoom: 9, opacity: 0.55
+      minZoom: 9, opacity: 0.55, noLabels: true
     },
     {
       id: 'slr',
@@ -45,8 +45,7 @@
       color: '#0d9488',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/CZM_NOAA_SLR_Data_Combined/MapServer',
-      layers: '',  // all layers
-      minZoom: 9, opacity: 0.55
+      minZoom: 9, opacity: 0.55, noLabels: true
     },
     {
       id: 'wetlands',
@@ -55,8 +54,7 @@
       color: '#65a30d',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/DEP_Wetlands/MapServer',
-      layers: '',
-      minZoom: 9, opacity: 0.55
+      minZoom: 9, opacity: 0.55, noLabels: true
     },
     {
       id: 'nhesp',
@@ -65,8 +63,7 @@
       color: '#d97706',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/NHESP_Priority_Habitats/MapServer',
-      layers: '',
-      minZoom: 9, opacity: 0.5
+      minZoom: 9, opacity: 0.5, noLabels: true
     },
     {
       id: 'czm',
@@ -75,8 +72,7 @@
       color: '#1e335e',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/Coastal_Zone/MapServer',
-      layers: '',
-      minZoom: 8, opacity: 0.45
+      minZoom: 8, opacity: 0.45, noLabels: true
     }
   ];
   const overlayState = Object.fromEntries(OVERLAYS.map(o => [o.id, false]));
@@ -353,6 +349,19 @@
 
   // build a TileLayer for an ArcGIS dynamic MapServer (via /export endpoint).
   // Tiles are rendered server-side at the requested bbox + size.
+  //
+  // Some MA-hosted ArcGIS map services bake labelingInfo into their renderers
+  // (FLD_ZONE labels on FEMA, habitat names on NHESP, etc). Those labels
+  // clash with our CartoDB labels sandwich. We use the ArcGIS dynamicLayers
+  // parameter to override drawingInfo per layer and zero out labelingInfo.
+  function buildSuppressLabelsDyn(layerIds) {
+    return JSON.stringify(layerIds.map(id => ({
+      id,
+      source: { type: 'mapLayer', mapLayerId: id },
+      drawingInfo: { labelingInfo: [] }
+    })));
+  }
+
   function exportTileLayer(o) {
     return new TileLayer({
       id: `ov-${o.id}`,
@@ -372,6 +381,12 @@
         u.searchParams.set('dpi', '96');
         u.searchParams.set('f', 'image');
         if (o.layers) u.searchParams.set('layers', o.layers);
+        if (o.noLabels) {
+          // Suppress labels across layers 0-9 (covers all the MA-hosted
+          // services we use, none has more than ~6 sublayers).
+          const ids = [0,1,2,3,4,5,6,7,8,9];
+          u.searchParams.set('dynamicLayers', buildSuppressLabelsDyn(ids));
+        }
         try {
           const r = await fetch(u.toString());
           if (!r.ok) return null;
