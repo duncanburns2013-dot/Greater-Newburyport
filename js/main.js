@@ -613,14 +613,18 @@
   }
 
   function drawCards() {
-    // sort towns by selected metric descending; ties broken alphabetically
+    // Card grid is for the 6 Greater Newburyport towns only. The other 345
+    // MA towns are visible on the map (gray outlines) and hover-able, but
+    // they don't get full stat cards beneath.
     const cfg = METRICS[activeMetric];
-    const features = geojson.features.slice().sort((a, b) => {
-      const av = a.properties[activeMetric] || 0;
-      const bv = b.properties[activeMetric] || 0;
-      if (bv !== av) return bv - av;
-      return a.properties.TOWN.localeCompare(b.properties.TOWN);
-    });
+    const features = geojson.features
+      .filter(f => f.properties.is_highlighted)
+      .sort((a, b) => {
+        const av = a.properties[activeMetric] || 0;
+        const bv = b.properties[activeMetric] || 0;
+        if (bv !== av) return bv - av;
+        return a.properties.TOWN.localeCompare(b.properties.TOWN);
+      });
     cardsEl.innerHTML = features.map(f => {
       const p = f.properties;
       const town = titleCase(p.TOWN);
