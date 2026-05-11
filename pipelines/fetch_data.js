@@ -203,6 +203,55 @@ function centroid(coords) {
     }
   }
 
+  // ---- MassGIS parcel-level enrichment ----
+  // Pulls aggregate stats from the MA Property Tax Parcels FeatureServer
+  // (residential only) for each town. Adds count of parcels + avg assessed
+  // value + avg lot size + avg year built per town.
+  console.log(`\nPulling MassGIS parcel aggregates (residential only)...`);
+  // MA TOWN_ID mapping for the 6 towns
+  const TOWN_ID = { 'AMESBURY': 9, 'NEWBURY': 209, 'NEWBURYPORT': 215, 'ROWLEY': 248, 'SALISBURY': 257, 'WEST NEWBURY': 320 };
+  // Massachusetts USE_CODEs for residential. Some towns use the old 3-digit
+  // format (101 single-fam, 102 condo, 104 two-fam, 105 three-fam, 109
+  // multiple-on-parcel, 111 apartment), others use the modern 4-digit MAO
+  // classification (1010, 1020, 1021, 1040, etc). Match anything starting
+  // with '10' or '11' to capture both formats — residential class 1.
+  // Wrapping in LIKE clause via the REST API.
+  const RESIDENTIAL_PRED = "(USE_CODE LIKE '10%' OR USE_CODE LIKE '11%')";
+  const ids = Object.values(TOWN_ID).join(',');
+  const stats = [
+    { statisticType: 'count', onStatisticField: 'OBJECTID',  outStatisticFieldName: 'n' },
+    { statisticType: 'avg',   onStatisticField: 'TOTAL_VAL', outStatisticFieldName: 'avg_val' },
+    { statisticType: 'sum',   onStatisticField: 'TOTAL_VAL', outStatisticFieldName: 'sum_val' },
+    { statisticType: 'avg',   onStatisticField: 'LOT_SIZE',  outStatisticFieldName: 'avg_lot' },
+    { statisticType: 'avg',   onStatisticField: 'BLD_AREA',  outStatisticFieldName: 'avg_bld' },
+    { statisticType: 'avg',   onStatisticField: 'YEAR_BUILT',outStatisticFieldName: 'avg_year' },
+    { statisticType: 'min',   onStatisticField: 'YEAR_BUILT',outStatisticFieldName: 'min_year' }
+  ];
+  const url = new URL('https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/Massachusetts_Property_Tax_Parcels/FeatureServer/0/query');
+  url.searchParams.set('where', `TOWN_ID IN (${ids}) AND ${RESIDENTIAL_PRED}`);
+  url.searchParams.set('groupByFieldsForStatistics', 'TOWN_ID');
+  url.searchParams.set('outStatistics', JSON.stringify(stats));
+  url.searchParams.set('f', 'json');
+  const aggResp = await getRetry(url.toString());
+  const aggByTownId = new Map((aggResp.features || []).map(f => [f.attributes.TOWN_ID, f.attributes]));
+  console.log(`  pulled ${aggResp.features?.length || 0} town aggregates`);
+
+  // Merge into geojson features
+  for (const f of towns.features) {
+    const tid = TOWN_ID[f.properties.TOWN];
+    if (!tid) continue;
+    const a = aggByTownId.get(tid);
+    if (!a) continue;
+    f.properties.parcel_count = a.n;
+    f.properties.parcel_avg_value = Math.round(a.avg_val);
+    f.properties.parcel_sum_value = Math.round(a.sum_val);
+    f.properties.parcel_avg_lot = +(a.avg_lot || 0).toFixed(2);
+    f.properties.parcel_avg_bld = Math.round(a.avg_bld);
+    f.properties.parcel_avg_year = Math.round(a.avg_year);
+    f.properties.parcel_oldest = a.min_year;
+    f.properties.massgis_town_id = tid;
+  }
+
   // ---- compute bounding box for map camera ----
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
   for (const f of towns.features) {

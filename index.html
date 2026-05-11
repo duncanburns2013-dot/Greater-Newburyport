@@ -31,7 +31,14 @@
     <button data-metric="median_dom">Days on Market</button>
     <button data-metric="sold_count">Sales (12 mo)</button>
     <button data-metric="median_sold_psf">$ / sqft</button>
+    <button data-metric="parcel_count">Total Parcels</button>
+    <button data-metric="parcel_avg_value">Avg Assessment</button>
   </nav>
+
+  <label class="parcels-toggle" title="Show every property boundary from the MA Property Tax Parcels layer. Visible when zoomed in.">
+    <input type="checkbox" id="parcelsToggle" />
+    <span>Show parcel boundaries <small>(MassGIS · zoom in to see)</small></span>
+  </label>
 
   <div class="map-wrap">
     <div id="map" class="map" role="img" aria-label="Map of six Greater Newburyport towns shaded by market metric">
@@ -42,18 +49,32 @@
 
   <section class="cards" id="cards"></section>
 
+  <div class="explore-row">
+    <div class="explore-label">Go deeper:</div>
+    <a class="explore-link" href="https://massgis.maps.arcgis.com/apps/instant/sidebar/index.html?appid=3108befad2974590a8f40016de73ae31" target="_blank" rel="noopener">
+      <span class="explore-title">MA Interactive Property Map</span>
+      <span class="explore-sub">Every parcel, assessor info, owner, sale history. MassGIS.</span>
+    </a>
+    <a class="explore-link" href="https://maps.massgis.digital.mass.gov/MassMapper/MassMapper.html" target="_blank" rel="noopener">
+      <span class="explore-title">MassMapper</span>
+      <span class="explore-sub">100+ layers: zoning, wetlands, FEMA flood, conservation, transit.</span>
+    </a>
+  </div>
+
   <footer class="foot">
     <div class="foot-credit">
       <span class="foot-name">Duncan Burns</span> &middot; REMAX Bentleys
     </div>
     <div class="foot-meta">
-      Data: <a href="https://www.mlspin.com" target="_blank" rel="noopener">MLSPIN</a>
-      &middot; <span id="foot-stamp">refreshed &mdash;</span>
+      Transactions: <a href="https://www.mlspin.com" target="_blank" rel="noopener">MLSPIN</a>
       &middot; Boundaries: <a href="https://www.mass.gov/info-details/massgis-data-municipalities" target="_blank" rel="noopener">MassGIS / MassDOT</a>
+      &middot; Parcels &amp; assessments: <a href="https://www.mass.gov/info-details/massgis-data-property-tax-parcels" target="_blank" rel="noopener">MA Property Tax Parcels (MassGIS)</a>
+      &middot; <span id="foot-stamp">refreshed &mdash;</span>
     </div>
     <div class="foot-disclaim">
       Aggregate market statistics. Not a guarantee of value or terms of any individual property.
-      Single-family, condominium, and 2&ndash;3 family residential transactions only.
+      MLSPIN transactions are single-family, condominium, and 2&ndash;3 family residential only.
+      Assessor aggregates filtered to residential use classes 1010/1020/1040/1050/1090/111x and their 3-digit equivalents.
     </div>
   </footer>
 

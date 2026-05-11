@@ -129,6 +129,41 @@ a:hover { border-bottom-color: var(--navy); }
 .metric-bar button:hover { color: var(--brand-navy); background: var(--cyan-tint); }
 .metric-bar button.active:hover { color: #fff; background: var(--brand-navy); }
 
+/* ----- parcels toggle (between metric bar and map) ----- */
+.parcels-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  margin: -0.5rem 0 1rem;
+  user-select: none;
+}
+.parcels-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px; height: 20px;
+  border-radius: 999px;
+  background: rgba(30, 51, 94, 0.18);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.parcels-toggle input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.parcels-toggle input[type="checkbox"]:checked { background: var(--brand-navy); }
+.parcels-toggle input[type="checkbox"]:checked::before { transform: translateX(16px); }
+.parcels-toggle small { color: var(--ink-mute); font-size: 0.72rem; margin-left: 0.2rem; }
+
 /* ----- map ----- */
 .map-wrap {
   position: relative;
@@ -289,6 +324,110 @@ a:hover { border-bottom-color: var(--navy); }
   padding: 0 0.4rem;
   border-radius: 3px;
   margin-left: 0.3rem;
+}
+
+/* Section labels inside a town card / tooltip */
+.card-section {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-navy);
+  margin: 0.85rem 0 0.45rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+.card-section:first-of-type { padding-top: 0; border-top: none; margin-top: 0; }
+
+/* "View on MassGIS" link inside each card */
+.card-link {
+  display: inline-block;
+  margin-top: 0.85rem;
+  padding: 0.4rem 0.7rem;
+  background: var(--brand-cyan);
+  color: var(--brand-navy);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  border-bottom: none;
+  transition: all 0.2s ease;
+}
+.card-link:hover {
+  background: var(--brand-navy);
+  color: #fff;
+  transform: translateX(2px);
+}
+
+/* Section labels inside the tooltip */
+.tt-section {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(201, 235, 252, 0.85);
+  margin: 0.6rem 0 0.3rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+.tt-section:first-of-type { padding-top: 0; border-top: none; margin-top: 0; }
+
+/* ----- "Go deeper" external link row ----- */
+.explore-row {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 0.9rem;
+  align-items: stretch;
+  margin-bottom: 1.6rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 1.4rem;
+}
+.explore-label {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  align-self: center;
+  padding-right: 0.5rem;
+}
+.explore-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1.1rem;
+  background: linear-gradient(135deg, #fff, var(--cyan-soft));
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.explore-link:hover {
+  border-color: var(--brand-navy);
+  background: linear-gradient(135deg, var(--cyan-soft), #fff);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(30, 51, 94, 0.12);
+}
+.explore-title {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--brand-navy);
+}
+.explore-link:hover .explore-title { color: var(--navy-deep); }
+.explore-sub {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+@media (max-width: 700px) {
+  .explore-row { grid-template-columns: 1fr; }
+  .explore-label { padding: 0; }
 }
 
 /* ----- footer ----- */

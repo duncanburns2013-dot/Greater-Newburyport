@@ -5,7 +5,10 @@
   'use strict';
 
   if (!window.deck) return console.error('deck.gl not loaded');
-  const { Deck, MapView, GeoJsonLayer } = window.deck;
+  const { Deck, MapView, GeoJsonLayer, TileLayer, BitmapLayer } = window.deck;
+
+  const PARCEL_TILE_URL = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_Level3_Parcels/MapServer/tile/{z}/{y}/{x}';
+  let showParcels = false;
 
   const mapEl = document.getElementById('map');
   const cardsEl = document.getElementById('cards');
@@ -20,16 +23,16 @@
   // ---------- metric configs ----------
   const METRICS = {
     median_sold: {
-      label: 'Median Sold Price',
+      label: 'Median Sold Price (MLSPIN, 12 mo)',
       cardLabel: 'Sold (12 mo)',
-      direction: 'higher-is-worse',  // i.e. red end of ramp at high values
+      direction: 'higher-is-worse',
       domain: [550000, 1100000],
       legendStops: [550, 700, 850, 1000, 1100],
       legendFormat: v => '$' + v + 'K',
       format: v => v == null ? '—' : '$' + (v >= 1e6 ? (v/1e6).toFixed(2)+'M' : (v/1e3).toFixed(0)+'K')
     },
     median_active_list: {
-      label: 'Median Active List',
+      label: 'Median Active List (MLSPIN)',
       cardLabel: 'Listed',
       direction: 'higher-is-worse',
       domain: [600000, 1600000],
@@ -38,7 +41,7 @@
       format: v => v == null ? '—' : '$' + (v >= 1e6 ? (v/1e6).toFixed(2)+'M' : (v/1e3).toFixed(0)+'K')
     },
     median_dom: {
-      label: 'Days on Market',
+      label: 'Days on Market (MLSPIN, 12 mo)',
       cardLabel: 'DOM',
       direction: 'higher-is-worse',
       domain: [15, 50],
@@ -47,7 +50,7 @@
       format: v => v == null ? '—' : Math.round(v) + ' days'
     },
     sold_count: {
-      label: 'Sales (12 mo)',
+      label: 'Sales (MLSPIN, last 12 mo)',
       cardLabel: 'Sales',
       direction: 'higher-is-better',
       domain: [20, 260],
@@ -56,13 +59,31 @@
       format: v => v == null ? '—' : v.toLocaleString()
     },
     median_sold_psf: {
-      label: '$ / square foot',
+      label: 'Sold $ / square foot (MLSPIN)',
       cardLabel: '$ / sqft',
       direction: 'higher-is-worse',
       domain: [300, 700],
       legendStops: [300, 400, 500, 600, 700],
       legendFormat: v => '$' + v,
       format: v => v == null ? '—' : '$' + Math.round(v) + '/sf'
+    },
+    parcel_count: {
+      label: 'Residential Parcels (MassGIS Assessor)',
+      cardLabel: 'Parcels',
+      direction: 'higher-is-better',
+      domain: [1000, 13000],
+      legendStops: [1000, 4000, 7000, 10000, 13000],
+      legendFormat: v => v >= 1000 ? (v/1000)+'K' : v,
+      format: v => v == null ? '—' : v.toLocaleString()
+    },
+    parcel_avg_value: {
+      label: 'Avg Residential Assessment (MassGIS)',
+      cardLabel: 'Avg Assessment',
+      direction: 'higher-is-worse',
+      domain: [200000, 1100000],
+      legendStops: [200, 400, 600, 850, 1100],
+      legendFormat: v => '$' + v + 'K',
+      format: v => v == null ? '—' : '$' + Math.round(v/1000) + 'K'
     }
   };
 
@@ -144,12 +165,17 @@
         const p = object.properties;
         const html = `
           <div class="tt-name">${titleCase(p.TOWN)}</div>
+          <div class="tt-section">MLSPIN · last 12 months</div>
           <div class="tt-row"><span>Median sold</span><b>${fmt(p.median_sold)}</b></div>
-          <div class="tt-row"><span>Sold last 12mo</span><b>${p.sold_count || '—'}</b></div>
+          <div class="tt-row"><span>Sales</span><b>${p.sold_count || '—'}</b></div>
           <div class="tt-row"><span>Days on market</span><b>${p.median_dom != null ? Math.round(p.median_dom)+' days' : '—'}</b></div>
           <div class="tt-row"><span>$ / sqft</span><b>${p.median_sold_psf != null ? '$'+Math.round(p.median_sold_psf) : '—'}</b></div>
           <div class="tt-row"><span>Active listings</span><b>${p.active_count || '—'}</b></div>
-          <div class="tt-row"><span>Median list (active)</span><b>${fmt(p.median_active_list)}</b></div>
+          <div class="tt-section">MassGIS assessor · residential</div>
+          <div class="tt-row"><span>Residential parcels</span><b>${p.parcel_count != null ? p.parcel_count.toLocaleString() : '—'}</b></div>
+          <div class="tt-row"><span>Avg assessment</span><b>${p.parcel_avg_value != null ? '$'+Math.round(p.parcel_avg_value/1000)+'K' : '—'}</b></div>
+          <div class="tt-row"><span>Avg building</span><b>${p.parcel_avg_bld != null ? p.parcel_avg_bld.toLocaleString()+' sf' : '—'}</b></div>
+          <div class="tt-row"><span>Oldest on record</span><b>${p.parcel_oldest || '—'}</b></div>
         `;
         return { html, className: 'tt' };
       },
@@ -168,31 +194,56 @@
 
   function buildLayers() {
     const cfg = METRICS[activeMetric];
-    return [
-      new GeoJsonLayer({
-        id: 'towns',
-        data: geojson,
-        stroked: true,
-        filled: true,
-        lineWidthUnits: 'pixels',
-        lineWidthMinPixels: 1,
-        getLineColor: f => f.properties.TOWN === hoveredTown ? [30, 51, 94, 255] : [30, 51, 94, 110],
-        getLineWidth: f => f.properties.TOWN === hoveredTown ? 3 : 1,
-        getFillColor: f => {
-          const v = f.properties[activeMetric];
-          const c = metricColor(v, cfg);
-          if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], 255];
-          return c;
-        },
-        pickable: true,
-        updateTriggers: {
-          getFillColor: [activeMetric, hoveredTown],
-          getLineColor: [hoveredTown],
-          getLineWidth: [hoveredTown]
-        },
-        transitions: { getFillColor: { duration: 500, easing: t => 1 - Math.pow(1 - t, 3) } }
-      })
-    ];
+    const layers = [];
+
+    // Optional: MassGIS parcel raster tiles (visible only at high zoom for perf)
+    if (showParcels) {
+      layers.push(new TileLayer({
+        id: 'parcel-tiles',
+        data: PARCEL_TILE_URL,
+        minZoom: 10,
+        maxZoom: 19,
+        tileSize: 256,
+        opacity: 0.55,
+        renderSubLayers: props => {
+          const { boundingBox } = props.tile;
+          return new BitmapLayer(props, {
+            data: null,
+            image: props.data,
+            bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
+          });
+        }
+      }));
+    }
+
+    // Town polygons (always visible, beneath/above parcels depending on toggle)
+    layers.push(new GeoJsonLayer({
+      id: 'towns',
+      data: geojson,
+      stroked: true,
+      filled: true,
+      lineWidthUnits: 'pixels',
+      lineWidthMinPixels: 1,
+      getLineColor: f => f.properties.TOWN === hoveredTown ? [30, 51, 94, 255] : [30, 51, 94, 110],
+      getLineWidth: f => f.properties.TOWN === hoveredTown ? 3 : 1,
+      getFillColor: f => {
+        const v = f.properties[activeMetric];
+        const c = metricColor(v, cfg);
+        // When parcels are visible, knock fill opacity down so parcels show through
+        const a = showParcels ? 110 : c[3];
+        if (f.properties.TOWN === hoveredTown) return [c[0], c[1], c[2], showParcels ? 160 : 255];
+        return [c[0], c[1], c[2], a];
+      },
+      pickable: true,
+      updateTriggers: {
+        getFillColor: [activeMetric, hoveredTown, showParcels],
+        getLineColor: [hoveredTown],
+        getLineWidth: [hoveredTown]
+      },
+      transitions: { getFillColor: { duration: 500, easing: t => 1 - Math.pow(1 - t, 3) } }
+    }));
+
+    return layers;
   }
 
   function drawLegend() {
@@ -219,16 +270,29 @@
     });
     cardsEl.innerHTML = features.map(f => {
       const p = f.properties;
+      const town = titleCase(p.TOWN);
+      const massGisLink = `https://massgis.maps.arcgis.com/apps/instant/sidebar/index.html?appid=3108befad2974590a8f40016de73ae31&searchExtent=${encodeURIComponent(town + ', MA')}`;
       return `<article class="card">
-        <div class="card-town">${titleCase(p.TOWN)}</div>
+        <div class="card-town">${town}</div>
+        <div class="card-section">Sales (MLSPIN, last 12 mo)</div>
         <dl class="card-stats">
           <dt>Median sold</dt><dd class="accent">${fmt(p.median_sold)}</dd>
-          <dt>Sales (12 mo)</dt><dd>${p.sold_count || '—'}</dd>
+          <dt>Sales</dt><dd>${p.sold_count || '—'}</dd>
           <dt>Days on market</dt><dd>${p.median_dom != null ? Math.round(p.median_dom) : '—'}</dd>
           <dt>$ / sqft</dt><dd>${p.median_sold_psf != null ? '$'+Math.round(p.median_sold_psf) : '—'}</dd>
           <dt>Active listings</dt><dd>${p.active_count || '—'}</dd>
           <dt>Median list</dt><dd>${fmt(p.median_active_list)}</dd>
         </dl>
+        <div class="card-section">Assessor (MassGIS, residential)</div>
+        <dl class="card-stats">
+          <dt>Residential parcels</dt><dd>${p.parcel_count != null ? p.parcel_count.toLocaleString() : '—'}</dd>
+          <dt>Avg assessed</dt><dd>${p.parcel_avg_value != null ? '$'+Math.round(p.parcel_avg_value/1000)+'K' : '—'}</dd>
+          <dt>Avg building</dt><dd>${p.parcel_avg_bld != null ? p.parcel_avg_bld.toLocaleString()+' sf' : '—'}</dd>
+          <dt>Oldest on record</dt><dd>${p.parcel_oldest || '—'}</dd>
+        </dl>
+        <a class="card-link" href="${massGisLink}" target="_blank" rel="noopener">
+          View parcels on MassGIS &rarr;
+        </a>
       </article>`;
     }).join('');
   }
@@ -245,6 +309,13 @@
         drawCards();
       });
     });
+    const tg = document.getElementById('parcelsToggle');
+    if (tg) {
+      tg.addEventListener('change', () => {
+        showParcels = tg.checked;
+        deckInstance.setProps({ layers: buildLayers() });
+      });
+    }
   }
 
   function titleCase(s) {

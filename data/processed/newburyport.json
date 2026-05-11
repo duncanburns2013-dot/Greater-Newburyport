@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated": "2026-05-11T15:21:00.556Z",
+    "generated": "2026-05-11T15:52:31.603Z",
     "source": "MLSPIN",
     "window_days": 365,
     "since": "2025-05-11",
@@ -11690,7 +11690,15 @@
           "median_active_list": 684500,
           "median_active_dom": 11.5,
           "median_active_psf": 464.28999999999996,
-          "price_to_income": 9.55
+          "price_to_income": 9.55,
+          "parcel_count": 3343,
+          "parcel_avg_value": 453786,
+          "parcel_sum_value": 1517005576,
+          "parcel_avg_lot": 1.63,
+          "parcel_avg_bld": 3695,
+          "parcel_avg_year": 1983,
+          "parcel_oldest": 1700,
+          "massgis_town_id": 257
         }
       },
       {
@@ -53886,7 +53894,15 @@
           "median_active_list": 1050000,
           "median_active_dom": 9,
           "median_active_psf": 462.625,
-          "price_to_income": 9.95
+          "price_to_income": 9.95,
+          "parcel_count": 3795,
+          "parcel_avg_value": 199237,
+          "parcel_sum_value": 756104775,
+          "parcel_avg_lot": 0.74,
+          "parcel_avg_bld": 2083,
+          "parcel_avg_year": 1916,
+          "parcel_oldest": 1700,
+          "massgis_town_id": 209
         }
       },
       {
@@ -71730,7 +71746,15 @@
           "median_active_list": 775000,
           "median_active_dom": 4,
           "median_active_psf": 415.47,
-          "price_to_income": 9.94
+          "price_to_income": 9.94,
+          "parcel_count": 12462,
+          "parcel_avg_value": 847132,
+          "parcel_sum_value": 10556963296,
+          "parcel_avg_lot": 0.1,
+          "parcel_avg_bld": 3567,
+          "parcel_avg_year": 1951,
+          "parcel_oldest": 1696,
+          "massgis_town_id": 248
         }
       },
       {
@@ -79306,7 +79330,15 @@
           "median_active_list": 1429000,
           "median_active_dom": 4,
           "median_active_psf": 396.94,
-          "price_to_income": 6.59
+          "price_to_income": 6.59,
+          "parcel_count": 1277,
+          "parcel_avg_value": 1031303,
+          "parcel_sum_value": 1316973868,
+          "parcel_avg_lot": 1.42,
+          "parcel_avg_bld": 2920,
+          "parcel_avg_year": 1953,
+          "parcel_oldest": 1648,
+          "massgis_town_id": 320
         }
       },
       {
@@ -85014,7 +85046,15 @@
           "median_active_list": 699450,
           "median_active_dom": 4,
           "median_active_psf": 336.845,
-          "price_to_income": 8.24
+          "price_to_income": 8.24,
+          "parcel_count": 11090,
+          "parcel_avg_value": 963338,
+          "parcel_sum_value": 10683414200,
+          "parcel_avg_lot": 0.71,
+          "parcel_avg_bld": 4366,
+          "parcel_avg_year": 1962,
+          "parcel_oldest": 1650,
+          "massgis_town_id": 9
         }
       },
       {
@@ -93778,7 +93818,15 @@
           "median_active_list": 1600000,
           "median_active_dom": 4,
           "median_active_psf": 704.625,
-          "price_to_income": 10.57
+          "price_to_income": 10.57,
+          "parcel_count": 4998,
+          "parcel_avg_value": 688453,
+          "parcel_sum_value": 3440888500,
+          "parcel_avg_lot": 1.05,
+          "parcel_avg_bld": 3773,
+          "parcel_avg_year": 1971,
+          "parcel_oldest": 1700,
+          "massgis_town_id": 215
         }
       }
     ]
