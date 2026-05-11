@@ -16,3 +16,4 @@ node_modules/
 # raw MLS pulls (regenerable, sometimes contain agent contact info)
 data/raw/bridge_*.json
 data/raw/mlspin_*.json
+assets/newburyport-aerial.jpg
