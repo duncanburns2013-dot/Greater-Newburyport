@@ -38,6 +38,7 @@
       color: '#0ea5e9',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/FEMA/FEMA_National_Flood_Hazard_Layer/MapServer',
+      layerIds: [0],
       minZoom: 9, opacity: 0.55, noLabels: true
     },
     {
@@ -47,6 +48,7 @@
       color: '#0d9488',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/CZM_NOAA_SLR_Data_Combined/MapServer',
+      layerIds: [0],
       minZoom: 9, opacity: 0.55, noLabels: true
     },
     {
@@ -56,6 +58,7 @@
       color: '#65a30d',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/DEP_Wetlands/MapServer',
+      layerIds: [0, 1],     // DEP Wetlands has linear features + areas
       minZoom: 9, opacity: 0.55, noLabels: true
     },
     {
@@ -65,6 +68,7 @@
       color: '#d97706',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/NHESP_Priority_Habitats/MapServer',
+      layerIds: [0],
       minZoom: 9, opacity: 0.5, noLabels: true
     },
     {
@@ -74,6 +78,7 @@
       color: '#1e335e',
       kind: 'export',
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/Coastal_Zone/MapServer',
+      layerIds: [0],
       minZoom: 8, opacity: 0.45, noLabels: true
     }
   ];
@@ -404,11 +409,12 @@
         u.searchParams.set('dpi', '96');
         u.searchParams.set('f', 'image');
         if (o.layers) u.searchParams.set('layers', o.layers);
-        if (o.noLabels) {
-          // Suppress labels across layers 0-9 (covers all the MA-hosted
-          // services we use, none has more than ~6 sublayers).
-          const ids = [0,1,2,3,4,5,6,7,8,9];
-          u.searchParams.set('dynamicLayers', buildSuppressLabelsDyn(ids));
+        if (o.noLabels && o.layerIds && o.layerIds.length) {
+          // Only suppress labels on the layer IDs that actually exist on
+          // this service. Earlier we sent IDs 0-9 indiscriminately and
+          // the MapServer 400'd with "Invalid mapLayer with mapLayerId: 1"
+          // for any service that doesn't have layer 1.
+          u.searchParams.set('dynamicLayers', buildSuppressLabelsDyn(o.layerIds));
         }
         try {
           const r = await fetch(u.toString());
