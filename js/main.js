@@ -23,10 +23,12 @@
       sub: 'MassGIS · zoom to street level',
       color: '#94a3b8',
       kind: 'export',
-      // MassGIS parcels server hides itself at scales coarser than
-      // 1:24,000 — only visible when zoomed in past ~zoom 14.
+      // Layer 0 is a group that includes "Other Legal Interests" + "Misc
+      // Features" — those render filled colored polygons (conservation
+      // easements, ROWs) over the parcels and look like green/olive globs.
+      // Layer 1 is the pure Tax Parcels outline layer — what we want.
       base: 'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/MassachusettsPropertyTaxParcels/MapServer',
-      layers: 'show:0',
+      layers: 'show:1',
       minZoom: 14, opacity: 0.95
     },
     {
