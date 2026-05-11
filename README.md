@@ -15,12 +15,25 @@ Embed-friendly. Designed to drop into a Squarespace Code Block at any width from
   height="900"
   frameborder="0"
   loading="lazy"
-  style="border:0;display:block;max-width:1320px;margin:0 auto;"
+  style="border:0;display:block;width:100%;"
   title="Greater Newburyport — Market Snapshot">
 </iframe>
 ```
 
 In Squarespace: **Edit page → Add block → Code → paste the snippet above → Save**. Adjust the `height` value to suit your layout (700–1000 is the sweet spot).
+
+### Making it edge-to-edge on Squarespace
+
+If the embed looks too narrow on your Squarespace site, the constraint is Squarespace's outer column width, not the iframe. Two ways to widen it:
+
+1. **Squarespace 7.1**: place the Code Block in a section, then set **Section → Edit → Width → Inset: None** (or "Full Bleed" depending on template). That removes the inner padding.
+2. **Any template**: in the Code Block, wrap the iframe with a div that breaks out of the container:
+   ```html
+   <div style="width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;">
+     <iframe src="..." width="100%" height="900" frameborder="0" style="border:0;display:block;"></iframe>
+   </div>
+   ```
+   That forces the iframe to span the full browser viewport even inside a narrow column.
 
 ## What it shows
 

@@ -67,14 +67,14 @@
   };
 
   // ---------- color ramp ----------
-  // Sequential pale-cream → deep navy at the "worse" end. Restrained,
-  // realtor-marketing-appropriate (no cranberry alarm).
+  // Single-hue brand ramp: light cyan #c9ebfc → deep navy #1e335e.
+  // Sequential, professional, on-brand. No advocacy color cues.
   const RAMP = [
-    [243, 234, 213],   // pale cream
-    [205, 195, 169],   // warm beige
-    [184, 135, 70],    // gold mid
-    [101,  74,  84],   // muted maroon
-    [ 29,  58,  95]    // deep navy
+    [201, 235, 252],   // brand cyan (low values)
+    [148, 195, 232],   // mid cyan-blue
+    [ 88, 132, 184],   // muted blue
+    [ 54,  88, 138],   // steel navy
+    [ 30,  51,  94]    // brand navy (high values)
   ];
   function lerp(a, b, t) { return a + (b - a) * t; }
   function ramp(t, alpha = 230) {
@@ -86,7 +86,7 @@
     return [Math.round(lerp(a[0], b[0], f)), Math.round(lerp(a[1], b[1], f)), Math.round(lerp(a[2], b[2], f)), alpha];
   }
   function metricColor(v, cfg) {
-    if (v == null) return [220, 215, 200, 200];
+    if (v == null) return [220, 225, 235, 200];
     let t = (v - cfg.domain[0]) / (cfg.domain[1] - cfg.domain[0]);
     if (cfg.direction === 'higher-is-better') t = 1 - t;
     return ramp(t);
@@ -176,7 +176,7 @@
         filled: true,
         lineWidthUnits: 'pixels',
         lineWidthMinPixels: 1,
-        getLineColor: f => f.properties.TOWN === hoveredTown ? [29, 58, 95, 255] : [40, 50, 70, 90],
+        getLineColor: f => f.properties.TOWN === hoveredTown ? [30, 51, 94, 255] : [30, 51, 94, 110],
         getLineWidth: f => f.properties.TOWN === hoveredTown ? 3 : 1,
         getFillColor: f => {
           const v = f.properties[activeMetric];
