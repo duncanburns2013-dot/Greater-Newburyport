@@ -54,7 +54,31 @@ The wrapper forces the iframe to span the full browser viewport regardless of co
 - **`height="1100"`** is a good starting point — fits the map + metric toggles + 6 town cards + footer comfortably on most desktops.
 - Make it **shorter** (e.g. `800`) if you only want the map and a couple cards visible.
 - Make it **taller** (e.g. `1400`) if you want everything visible without scroll on a wide page.
-- Mobile users will scroll inside the iframe regardless of height — that's fine.
+
+## Mobile / responsive embed
+
+If you want the iframe height to adapt — taller on desktop, shorter on phones — Squarespace 7.1 lets you wrap the Code Block in a section and the section will lay out responsively, but the iframe `height` attribute stays fixed. The cleanest mobile pattern is:
+
+```html
+<style>
+  .gnb-embed { width: 100%; aspect-ratio: 1320/1100; min-height: 720px; }
+  @media (max-width: 600px) { .gnb-embed { aspect-ratio: 360/900; min-height: 900px; } }
+</style>
+<iframe class="gnb-embed"
+  src="https://duncanburns2013-dot.github.io/Greater-Newburyport/"
+  frameborder="0" loading="lazy"
+  style="border:0;display:block;"
+  title="Greater Newburyport — Market Snapshot">
+</iframe>
+```
+
+The `aspect-ratio` CSS property scales the iframe to its container width. The page itself reflows to a single column at narrow widths (the inner site has explicit breakpoints at 720 px and 520 px to handle phones).
+
+**Touch UX inside the iframe** (already configured):
+- One-finger drag = pans the page (so users don't get trapped scrolling inside the map)
+- Two fingers / pinch = pans and zooms the map
+- Tap a town = shows the stat tooltip
+- Tap a metric button / layer toggle = same as desktop click
 
 ## Tweaking what's pre-shown
 

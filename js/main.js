@@ -296,7 +296,18 @@
         updateZoomHint();
         return viewState;
       },
-      controller: { dragRotate: false, doubleClickZoom: true, scrollZoom: { speed: 0.6, smooth: true } },
+      controller: {
+        dragRotate: false,
+        doubleClickZoom: true,
+        scrollZoom: { speed: 0.6, smooth: true },
+        // Mobile touch UX: pinch zooms the map; one-finger drag is reserved
+        // for panning the page (so the iframe doesn't trap vertical scroll).
+        // Tap still works to fire tooltips.
+        dragPan: true,
+        touchZoom: true,
+        touchRotate: false,
+        inertia: 300
+      },
       views: new MapView({ id: 'map' }),
       onHover: ({ object }) => {
         const t = object && object.properties && object.properties.TOWN;
