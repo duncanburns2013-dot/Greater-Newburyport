@@ -262,6 +262,43 @@ function centroid(coords) {
     f.properties.massgis_town_id = tid;
   }
 
+  // ---- simplify geometry for non-highlighted towns ----
+  // Background towns only need rough outlines. Round coords to 2 decimals
+  // (~1.1 km precision — fine at state-level zoom) and aggressively decimate
+  // every 12th vertex. Highlighted GN towns keep full MassDOT precision.
+  function roundCoord(c, dec) {
+    const m = Math.pow(10, dec);
+    return [Math.round(c[0] * m) / m, Math.round(c[1] * m) / m];
+  }
+  function decimate(ring, n) {
+    if (ring.length <= 6) return ring;
+    const out = [];
+    for (let i = 0; i < ring.length - 1; i += n) out.push(ring[i]);
+    out.push(ring[ring.length - 1]);
+    return out;
+  }
+  // Deduplicate consecutive identical coords (rounding can produce them)
+  function dedupe(ring) {
+    const out = [ring[0]];
+    for (let i = 1; i < ring.length; i++) {
+      if (ring[i][0] !== out[out.length-1][0] || ring[i][1] !== out[out.length-1][1]) out.push(ring[i]);
+    }
+    return out.length >= 4 ? out : ring;
+  }
+  function simplifyRings(rings, n, dec) {
+    return rings.map(ring => dedupe(decimate(ring.map(c => roundCoord(c, dec)), n)));
+  }
+  let preBytes = 0, postBytes = 0;
+  for (const f of towns.features) {
+    if (f.properties.is_highlighted) continue;
+    preBytes += JSON.stringify(f.geometry).length;
+    const g = f.geometry;
+    if (g.type === 'Polygon') g.coordinates = simplifyRings(g.coordinates, 12, 2);
+    else if (g.type === 'MultiPolygon') g.coordinates = g.coordinates.map(poly => simplifyRings(poly, 12, 2));
+    postBytes += JSON.stringify(f.geometry).length;
+  }
+  console.log(`  Simplified 345 background towns: ${(preBytes/1024).toFixed(0)} KB → ${(postBytes/1024).toFixed(0)} KB`);
+
   // ---- compute bounding box for map camera (centered on the 6 GN towns) ----
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
   for (const f of towns.features) {
@@ -286,7 +323,8 @@ function centroid(coords) {
     },
     geojson: towns
   };
-  fs.writeFileSync(path.join(OUT, 'newburyport.json'), JSON.stringify(out, null, 2));
+  // Minified output — no pretty-printing. Saves ~30% on disk and bandwidth.
+  fs.writeFileSync(path.join(OUT, 'newburyport.json'), JSON.stringify(out));
   console.log(`\nWrote newburyport.json — ${closed.length} closed + ${active.length} active across ${towns.features.length} towns`);
 
   // ---- summary print: 6 highlighted towns + overall stats ----
