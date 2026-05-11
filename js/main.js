@@ -222,21 +222,22 @@
     return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
   }
 
-  // Town color: town's base hue, but lightness modulated by the metric value.
-  // High value → darker (more saturated) version of the hue.
-  // Low value  → lighter (washed-out) version.
+  // Town color: town's base hue, but lightness + saturation strongly modulated
+  // by the metric value. Range is wide so changing metrics produces a visible
+  // shift in each town's appearance, not just a subtle tonal change.
   function metricColor(v, cfg, townName) {
     const hue = TOWN_HUES[townName] || { h: 220, s: 30, l: 50 };
     if (v == null || cfg == null) {
-      const [r, g, b] = hslToRgb(hue.h, hue.s * 0.4, Math.min(hue.l + 25, 85));
+      const [r, g, b] = hslToRgb(hue.h, hue.s * 0.3, Math.min(hue.l + 30, 88));
       return [r, g, b, 180];
     }
     let t = (v - cfg.domain[0]) / (cfg.domain[1] - cfg.domain[0]);
     if (cfg.direction === 'higher-is-better') t = 1 - t;
     t = Math.max(0, Math.min(1, t));
-    // higher t → darker (lower lightness, higher saturation)
-    const targetL = hue.l + (1 - t) * 32;    // higher value → closer to base lightness; lower → 32pts lighter
-    const targetS = hue.s * (0.55 + t * 0.45); // higher value → more saturated
+    // Wide range: low values nearly desaturated + very light;
+    // high values fully saturated + darker than base.
+    const targetL = hue.l + (1 - t) * 42 - (t * 8);     // span ~50 lightness pts
+    const targetS = hue.s * (0.25 + t * 0.95);          // span ~70% of base sat
     const [r, g, b] = hslToRgb(hue.h, targetS, targetL);
     return [r, g, b, 235];
   }
@@ -301,17 +302,36 @@
       getTooltip: ({ object }) => {
         if (!object) return null;
         const p = object.properties;
+        // Build tooltip with the SELECTED metric pinned to the top in a
+        // highlighted block so toggling metric buttons is visible on hover.
+        const sel = METRICS[activeMetric];
+        const selValue = p[activeMetric];
+        const selDisplay = sel.format(selValue);
+        // Decide which section header the selected metric belongs in
+        const selIsAssessor = activeMetric.startsWith('parcel');
+        const mlspinRow = (label, key, fmtFn) => {
+          const active = activeMetric === key;
+          const val = p[key];
+          const display = fmtFn(val);
+          const cls = active ? 'tt-row tt-active' : 'tt-row';
+          return `<div class="${cls}"><span>${label}</span><b>${display}</b></div>`;
+        };
         const html = `
           <div class="tt-name">${titleCase(p.TOWN)}</div>
+          <div class="tt-selected">
+            <div class="tt-selected-label">${sel.label}</div>
+            <div class="tt-selected-value">${selDisplay}</div>
+          </div>
           <div class="tt-section">MLSPIN · last 12 months</div>
-          <div class="tt-row"><span>Median sold</span><b>${fmt(p.median_sold)}</b></div>
-          <div class="tt-row"><span>Sales</span><b>${p.sold_count || '—'}</b></div>
-          <div class="tt-row"><span>Days on market</span><b>${p.median_dom != null ? Math.round(p.median_dom)+' days' : '—'}</b></div>
-          <div class="tt-row"><span>$ / sqft</span><b>${p.median_sold_psf != null ? '$'+Math.round(p.median_sold_psf) : '—'}</b></div>
+          ${mlspinRow('Median sold', 'median_sold', v => fmt(v))}
+          ${mlspinRow('Median list (active)', 'median_active_list', v => fmt(v))}
+          ${mlspinRow('Sales', 'sold_count', v => v == null ? '—' : v.toLocaleString())}
+          ${mlspinRow('Days on market', 'median_dom', v => v == null ? '—' : Math.round(v) + ' days')}
+          ${mlspinRow('$ / sqft', 'median_sold_psf', v => v == null ? '—' : '$' + Math.round(v))}
           <div class="tt-row"><span>Active listings</span><b>${p.active_count || '—'}</b></div>
           <div class="tt-section">MassGIS assessor · residential</div>
-          <div class="tt-row"><span>Residential parcels</span><b>${p.parcel_count != null ? p.parcel_count.toLocaleString() : '—'}</b></div>
-          <div class="tt-row"><span>Avg assessment</span><b>${p.parcel_avg_value != null ? '$'+Math.round(p.parcel_avg_value/1000)+'K' : '—'}</b></div>
+          ${mlspinRow('Residential parcels', 'parcel_count', v => v == null ? '—' : v.toLocaleString())}
+          ${mlspinRow('Avg assessment', 'parcel_avg_value', v => v == null ? '—' : '$' + Math.round(v/1000) + 'K')}
           <div class="tt-row"><span>Avg building</span><b>${p.parcel_avg_bld != null ? p.parcel_avg_bld.toLocaleString()+' sf' : '—'}</b></div>
           <div class="tt-row"><span>Oldest on record</span><b>${p.parcel_oldest || '—'}</b></div>
         `;
@@ -396,25 +416,25 @@
     const layers = [];
     const anyOverlayActive = Object.values(overlayState).some(v => v);
 
-    // CartoDB Positron basemap — light neutral with street names + labels.
-    // Renders first so everything stacks on top of streets/labels for context.
+    // Basemap split into TWO layers (NYT-style):
+    //   1. light_nolabels — streets, water, terrain  (bottom)
+    //   2. light_only_labels — pure transparent label layer (TOP, above
+    //      town polygons + overlays so place names stay readable)
+    // Without this trick, our semi-transparent town fill washes the labels
+    // out and users can't see street names.
     layers.push(new TileLayer({
-      id: 'basemap',
+      id: 'basemap-roads',
       data: [
-        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+        'https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png'
       ],
-      minZoom: 0,
-      maxZoom: 19,
-      tileSize: 256,
-      opacity: 0.85,
+      minZoom: 0, maxZoom: 19, tileSize: 256, opacity: 0.95,
       renderSubLayers: props => {
         const { boundingBox } = props.tile;
         return new BitmapLayer(props, {
-          data: null,
-          image: props.data,
+          data: null, image: props.data,
           bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
         });
       }
@@ -452,6 +472,26 @@
         getLineWidth: [hoveredTown]
       },
       transitions: { getFillColor: { duration: 500, easing: t => 1 - Math.pow(1 - t, 3) } }
+    }));
+
+    // labels-only basemap layer on TOP so street names stay readable above
+    // the semi-transparent town fill + any active overlays
+    layers.push(new TileLayer({
+      id: 'basemap-labels',
+      data: [
+        'https://a.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png'
+      ],
+      minZoom: 0, maxZoom: 19, tileSize: 256, opacity: 1.0,
+      renderSubLayers: props => {
+        const { boundingBox } = props.tile;
+        return new BitmapLayer(props, {
+          data: null, image: props.data,
+          bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
+        });
+      }
     }));
 
     return layers;
